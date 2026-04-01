@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Daily Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <!-- Google Identity Services Script -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+
+<body>
+
+    <!-- Login View (Visible by Default) -->
+    <div id="login-view" class="view active">
+        <div class="login-hero">
+            <!-- Dynamic Background Layers -->
+            <div class="bg-layer background-image"></div>
+            <div class="bg-layer background-mesh"></div>
+            <div class="bg-layer background-blur"></div>
+
+            <div class="login-container">
+                <div class="login-card">
+                    <div class="login-header">
+                        <!-- Logo section removed -->
+                        <h1>Digital Flow</h1>
+                        <p class="subtitle">Experience the next generation of personal productivity. Seamless,
+                            real-time, and beautifully simple.</p>
+                    </div>
+
+                    <div class="login-actions">
+                        <!-- Google Identity Services Configuration -->
+                        <div id="g_id_onload" data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+                            data-context="signin" data-ux_mode="popup" data-callback="handleCredentialResponse"
+                            data-auto_prompt="false">
+                        </div>
+                        <div class="google-btn-container" onclick="showMockPicker()">
+                            <div class="g_id_signin" data-type="standard" data-shape="pill" data-theme="filled_blue"
+                                data-text="continue_with" data-size="large" data-logo_alignment="left">
+                            </div>
+                        </div>
+
+                        <div class="divider">
+                            <span>or</span>
+                        </div>
+
+                        <button id="guest-login-btn" class="guest-btn">
+                            <span class="btn-content">
+                                <span class="btn-icon">🚀</span>
+                                <span class="btn-text">Experience as Guest</span>
+                            </span>
+                        </button>
+                    </div>
+
+                    <div class="login-footer">
+                        <div class="trust-badges">
+                            <span>🔒 Secure</span>
+                            <span class="dot">•</span>
+                            <span>⚡ Real-time</span>
+                            <span class="dot">•</span>
+                            <span>💎 Premium</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard View (Hidden by Default) -->
+    <div id="dashboard-view" class="view hidden hidden-display">
+        <div class="dashboard-layout">
+            <!-- New Premium Sidebar -->
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <!-- Logo section removed -->
+                    <span class="brand-name">Digital Flow</span>
+                </div>
+
+                <nav class="sidebar-nav">
+                    <a href="#" class="nav-link active">
+                        <span class="nav-icon">🏠</span>
+                        <span class="nav-label">Overview</span>
+                    </a>
+                    <a href="#" class="nav-link">
+                        <span class="nav-icon">🎯</span>
+                        <span class="nav-label">Objectives</span>
+                    </a>
+                    <a href="#" class="nav-link">
+                        <span class="nav-icon">📊</span>
+                        <span class="nav-label">Analytics</span>
+                    </a>
+                    <a href="#" class="nav-link">
+                        <span class="nav-icon">⚙️</span>
+                        <span class="nav-label">Settings</span>
+                    </a>
+                </nav>
+
+                <!-- New Sidebar Content: Insights -->
+                <div class="sidebar-section">
+                    <h4 class="section-title">Insights</h4>
+                    <div class="insight-item">
+                        <span class="insight-icon">🔥</span>
+                        <div class="insight-info">
+                            <span class="insight-label">Day Streak</span>
+                            <span class="insight-value">12 Days</span>
+                        </div>
+                    </div>
+                    <div class="insight-item">
+                        <span class="insight-icon">🏆</span>
+                        <div class="insight-info">
+                            <span class="insight-label">Best Focus</span>
+                            <span class="insight-value">4.5 Hours</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- New Sidebar Content: Next Up -->
+                <div class="sidebar-section">
+                    <h4 class="section-title">Next Up</h4>
+                    <div class="mini-task">
+                        <div class="status-dot online"></div>
+                        <span class="task-text">Team Sync @ 2:00 PM</span>
+                    </div>
+                    <div class="mini-task">
+                        <div class="status-dot"></div>
+                        <span class="task-text">Project Review</span>
+                    </div>
+                </div>
+
+                <div class="sidebar-footer">
+                    <div class="upgrade-card">
+                        <p>Unlock Premium</p>
+                        <button class="upgrade-btn">Pro Version</button>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content Area -->
+            <div class="main-content">
+                <header class="dashboard-header">
+                    <div class="header-left">
+                        <div class="welcome">
+                            <h1 id="user-greeting">Welcome Back, Guest</h1>
+                            <p id="dashboard-date">Monday, March 9, 2026</p>
+                        </div>
+                    </div>
+
+                    <div class="header-right">
+                        <div class="realtime-clock" id="realtime-clock">
+                            11:53:05 AM
+                        </div>
+
+                        <div class="user-profile" id="user-profile">
+                            <div class="user-info-text">
+                                <span id="user-name"></span>
+                                <span class="user-role">Premium Member</span>
+                            </div>
+                            <img id="user-avatar" src="" alt="Profile">
+                            <button id="logout-btn" class="logout-btn">Logout</button>
+                        </div>
+                    </div>
+                </header>
+
+                <div id="content-container">
+                    <!-- Overview Section (Default) -->
+                    <main id="overview-section" class="content-view active">
+                        <div class="dashboard-grid">
+                            <!-- Stats Overview Section -->
+                            <section class="widget stats-card">
+                                <div class="widget-header">
+                                    <h3>Focus Distribution</h3>
+                                </div>
+
+                                <div class="stats-visual-container">
+                                    <!-- Premium Gauge Chart -->
+                                    <div class="gauge-wrapper">
+                                        <svg viewBox="0 0 100 60" class="gauge-svg">
+                                            <defs>
+                                                <linearGradient id="gauge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                                    <stop offset="0%" stop-color="#8b5cf6" />
+                                                    <stop offset="100%" stop-color="#ec4899" />
+                                                </linearGradient>
+                                            </defs>
+                                            <!-- Track -->
+                                            <path d="M 10 50 A 40 40 0 0 1 90 50" class="gauge-track" />
+                                            <!-- Fill -->
+                                            <path d="M 10 50 A 40 40 0 0 1 90 50" class="gauge-fill" id="gauge-fill" />
+                                        </svg>
+                                        <div class="gauge-content">
+                                            <span class="gauge-value" id="progress-percentage">0%</span>
+                                            <span class="gauge-label">Efficiency</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="stats-details">
+                                        <div class="stat-row">
+                                            <div class="stat-indicator total"></div>
+                                            <span class="stat-name">Total Objectives</span>
+                                            <span class="stat-count" id="total-tasks-val">0</span>
+                                        </div>
+                                        <div class="stat-row">
+                                            <div class="stat-indicator done"></div>
+                                            <span class="stat-name">Completed</span>
+                                            <span class="stat-count" id="completed-tasks-val">0</span>
+                                        </div>
+                                        <div class="stat-row">
+                                            <div class="stat-indicator pending"></div>
+                                            <span class="stat-name">In Progress</span>
+                                            <span class="stat-count" id="pending-tasks-val">0</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="real-time-badge">
+                                    <span class="pulse"></span> LIVE METRICS
+                                </div>
+                            </section>
+
+                            <!-- Task Management Section -->
+                            <section class="widget tasks-card">
+                                <div class="widget-header">
+                                    <h3>Focus Tasks</h3>
+                                </div>
+                                <div class="input-group">
+                                    <input type="text" id="task-input" placeholder="What needs to be done?"
+                                        aria-label="New task input">
+                                    <button id="add-btn">Add Task</button>
+                                </div>
+
+                                <!-- Quick Suggestions for Beginners -->
+                                <div class="quick-suggestions">
+                                    <span class="suggestion-tag" onclick="quickAdd('Clean Room')">+ Clean Room</span>
+                                    <span class="suggestion-tag" onclick="quickAdd('Laundry')">+ Laundry</span>
+                                    <span class="suggestion-tag" onclick="quickAdd('Workout')">+ Workout</span>
+                                </div>
+                                <ul class="task-list" id="task-list">
+                                    <!-- Tasks will be added here -->
+                                </ul>
+                            </section>
+
+
+                            <!-- Focus Pulse Section -->
+                            <section class="widget motivation-card">
+                                <div class="widget-header">
+                                    <h3>Focus Pulse</h3>
+                                </div>
+                                <div class="pulse-container">
+                                    <div class="pulse-chart">
+                                        <div class="pulse-bar" style="height: 40%"></div>
+                                        <div class="pulse-bar" style="height: 70%"></div>
+                                        <div class="pulse-bar" style="height: 100%"></div>
+                                        <div class="pulse-bar" style="height: 60%"></div>
+                                        <div class="pulse-bar" style="height: 85%"></div>
+                                        <div class="pulse-bar active" style="height: 95%"></div>
+                                        <div class="pulse-bar" style="height: 45%"></div>
+                                    </div>
+                                </div>
+                                <div class="weather-compact">
+                                    <span class="temp">72°</span>
+                                    <span class="desc">Optimal Conditions</span>
+                                </div>
+                            </section>
+                        </div>
+                    </main>
+
+                    <!-- Objectives Section -->
+                    <main id="objectives-section" class="content-view hidden-display">
+                        <div class="view-header">
+                            <h2>Strategic Objectives</h2>
+                            <p>Long-term goals and milestones for your digital journey.</p>
+                        </div>
+                        <div class="objectives-grid" id="objectives-grid">
+                            <!-- Objectives will be rendered here dynamically -->
+                            <div class="objective-card plus" id="add-objective-card">
+                                <span class="plus-icon">+</span>
+                                <span>Add New Objective</span>
+                            </div>
+                        </div>
+                    </main>
+
+                    <!-- Add Objective Modal -->
+                    <div id="objective-modal" class="modal-overlay hidden-display">
+                        <div class="google-picker-card objective-modal-card">
+                            <div class="picker-header">
+                                <h2>New Strategic Objective</h2>
+                                <p>Set a new milestone for your journey</p>
+                            </div>
+
+                            <div class="modal-form">
+                                <div class="form-group">
+                                    <label>Objective Title</label>
+                                    <input type="text" id="obj-title" placeholder="e.g., Master Rocket Science"
+                                        class="settings-input">
+                                </div>
+                                <div class="form-group">
+                                    <label>Description</label>
+                                    <textarea id="obj-desc" placeholder="What is this goal about?"
+                                        class="settings-input"></textarea>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Icon (Emoji)</label>
+                                        <input type="text" id="obj-icon" placeholder="🚀" class="settings-input"
+                                            value="🎯">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Initial Progress (%)</label>
+                                        <input type="number" id="obj-progress" min="0" max="100" value="0"
+                                            class="settings-input">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="modal-actions">
+                                <button id="cancel-obj-btn" class="logout-btn">Cancel</button>
+                                <button id="confirm-obj-btn" class="save-settings-btn">Create Objective</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analytics Section -->
+                    <main id="analytics-section" class="content-view hidden-display">
+                        <div class="view-header">
+                            <h2>Detailed Analytics</h2>
+                            <p>Deep dive into your focus patterns and productivity metrics.</p>
+                        </div>
+                        <div class="analytics-grid">
+                            <div class="widget full-width">
+                                <h3>Productivity Trends</h3>
+                                <div class="mock-chart">
+                                    <!-- Placeholder for a larger chart -->
+                                    <div class="chart-line"></div>
+                                    <div class="chart-bars">
+                                        <div class="bar-group">
+                                            <div class="c-bar" style="height: 60%" data-percentage="60%"></div>
+                                            <span class="bar-label">Sun</span>
+                                        </div>
+                                        <div class="bar-group">
+                                            <div class="c-bar" style="height: 80%" data-percentage="80%"></div>
+                                            <span class="bar-label">Mon</span>
+                                        </div>
+                                        <div class="bar-group">
+                                            <div class="c-bar" style="height: 40%" data-percentage="40%"></div>
+                                            <span class="bar-label">Tue</span>
+                                        </div>
+                                        <div class="bar-group">
+                                            <div class="c-bar spotlight" style="height: 90%" data-percentage="90%">
+                                            </div>
+                                            <span class="bar-label">Wed</span>
+                                        </div>
+                                        <div class="bar-group">
+                                            <div class="c-bar" style="height: 70%" data-percentage="70%"></div>
+                                            <span class="bar-label">Thu</span>
+                                        </div>
+                                        <div class="bar-group">
+                                            <div class="c-bar" style="height: 95%" data-percentage="95%"></div>
+                                            <span class="bar-label">Fri</span>
+                                        </div>
+                                        <div class="bar-group">
+                                            <div class="c-bar" style="height: 50%" data-percentage="50%"></div>
+                                            <span class="bar-label">Sat</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="widget">
+                                <h3>Focus Quality</h3>
+                                <p>Average session length: 42 minutes</p>
+                                <div class="quality-indicators">
+                                    <div class="q-circle">88%</div>
+                                    <span>Optimum Focus Achieved</span>
+                                </div>
+                            </div>
+                            <div class="widget">
+                                <h3>Weekly Summary</h3>
+                                <ul class="weekly-list">
+                                    <li>Monday: 6.5h Focus</li>
+                                    <li>Tuesday: 4.2h Focus</li>
+                                    <li>Wednesday: 7.1h Focus</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </main>
+
+                    <!-- Settings Section -->
+                    <main id="settings-section" class="content-view hidden-display">
+                        <div class="view-header">
+                            <h2>Account Settings</h2>
+                            <p>Manage your account preferences and application settings.</p>
+                        </div>
+                        <div class="settings-container">
+                            <div class="settings-group">
+                                <h3>Profile Customization</h3>
+                                <div class="setting-item">
+                                    <label>Display Name</label>
+                                    <input type="text" value="Varad Agrawal" class="settings-input">
+                                </div>
+                                <div class="setting-item">
+                                    <label>Email Notification</label>
+                                    <div class="toggle-switch active"></div>
+                                </div>
+                            </div>
+                            <div class="settings-group">
+                                <h3>Appearance</h3>
+                                <div class="setting-item">
+                                    <label>Theme</label>
+                                    <select id="theme-select" class="settings-select">
+                                        <option value="light">Light (Default)</option>
+                                        <option value="dark">Dark Mode</option>
+                                        <option value="system">System</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button id="save-settings-btn" class="save-settings-btn">Save Changes</button>
+                        </div>
+                    </main>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mock Google Account Selector (Activated on Google Login click) -->
+    <div id="account-picker-modal" class="modal-overlay hidden-display">
+        <div class="google-picker-card">
+            <div class="picker-header">
+                <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" class="google-logo">
+                    <path fill="#EA4335"
+                        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z">
+                    </path>
+                    <path fill="#4285F4"
+                        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z">
+                    </path>
+                    <path fill="#FBBC05"
+                        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24s.92 7.54 2.56 10.78l7.97-6.19z">
+                    </path>
+                    <path fill="#34A853"
+                        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z">
+                    </path>
+                </svg>
+                <h2>Choose an account</h2>
+                <p>to continue to <span>Digital Flow</span></p>
+            </div>
+
+            <div class="account-list">
+                <div class="account-item" onclick="selectAccount('varad_personal')">
+                    <img src="https://ui-avatars.com/api/?name=Varad+P&background=8b5cf6&color=fff" alt="Varad">
+                    <div class="account-info">
+                        <span class="acc-name">Varad (Personal)</span>
+                        <span class="acc-email">varad.p@gmail.com</span>
+                    </div>
+                </div>
+                <div class="account-item" onclick="selectAccount('varad_work')">
+                    <img src="https://ui-avatars.com/api/?name=VA&background=10b981&color=fff" alt="Varad Work">
+                    <div class="account-info">
+                        <span class="acc-name">Varad Agrawal</span>
+                        <span class="acc-email">varad@digitalflow.io</span>
+                    </div>
+                </div>
+                <div class="account-item use-another">
+                    <div class="icon-circle">👤</div>
+                    <span>Use another account</span>
+                </div>
+            </div>
+
+            <div class="picker-footer">
+                <p>To continue, Google will share your name, email address, language preference, and profile picture
+                    with Digital Flow.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
