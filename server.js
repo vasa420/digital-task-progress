@@ -1,7 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
+const resend = new Resend(process.env.RESEND_API_KEY);
 const mongoose = require('mongoose');
 
 const app = express();
@@ -156,60 +157,28 @@ app.post('/api/notify', async (req, res) => {
     const emailBadgeColor = isSuccess ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
 
     try {
-        let transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 587,
-            secure: false,
-            auth: {
-                user: process.env.GMAIL_USER,
-                pass: process.env.GMAIL_PASS
-            },
-            connectionTimeout: 10000,
-            greetingTimeout: 10000,
-            socketTimeout: 10000,
-        });
+    const { data, error } = await resend.emails.send({
+        from: 'Digital Flow <onboarding@resend.dev>', // use this for testing; swap with your domain later
+        to: email,
+        subject: emailSubject,
+        text: isSuccess
+            ? `CONGRATULATIONS: You completed "${taskName}" successfully!`
+            : `URGENT: Your task "${taskName}" has exceeded its deadline!`,
+        html: `...your existing html string unchanged...`
+    });
 
-        const mailOptions = {
-            from: '"Digital Flow Achievement" <no-reply@digitalflow.io>',
-            to: email,
-            subject: emailSubject,
-            text: isSuccess ? `CONGRATULATIONS: You completed "${taskName}" successfully!` : `URGENT: Your task "${taskName}" has exceeded its deadline!`,
-            html: `
-                <div style="font-family: 'Inter', sans-serif; background: #0f172a; color: #f8fafc; padding: 40px; border-radius: 24px; border: 1px solid #1e293b;">
-                    <div style="text-align: center; margin-bottom: 30px;">
-                        <h1 style="color: #6366f1; margin: 0; font-size: 32px;">Digital Flow</h1>
-                        <p style="color: #94a3b8; font-size: 14px; text-transform: uppercase; letter-spacing: 2px;">Intelligence Performance Update</p>
-                    </div>
-                    
-                    <div style="background: ${emailBadgeColor}; border-left: 4px solid ${emailColor}; padding: 25px; border-radius: 12px; margin-bottom: 30px;">
-                        <h2 style="color: ${emailColor}; margin: 0 0 10px 0; font-size: 20px;">${emailHeadline}</h2>
-                        <p style="margin: 0; font-size: 18px; font-weight: bold; color: #f8fafc;">Task Name: ${taskName}</p>
-                    </div>
-
-                    <p style="font-size: 16px; line-height: 1.6; color: #cbd5e1;">${isSuccess ? 'Outstanding work! Our monitoring system has verified the completion of this task. Keep up the momentum!' : 'Your scheduled task has surpassed its designated "To" time. PLEASE DO FAST.'}</p>
-                    
-                    <div style="text-align: center; margin: 40px 0;">
-                        <span style="background: ${emailColor}; color: white; padding: 15px 35px; border-radius: 14px; text-decoration: none; font-weight: bold; font-size: 16px;">${isSuccess ? '🏆 Achievement Unlocked' : '⏰ Exceed Alert'}</span>
-                    </div>
-                    
-                    <hr style="border: 0; border-top: 1px solid #1e293b; margin: 40px 0;">
-                    <p style="text-align: center; color: #64748b; font-size: 12px;">Sent via Digital Flow High-Fidelity Performance Engine.</p>
-                </div>
-            `
-        };
-
-        let info = await transporter.sendMail(mailOptions);
-
-        console.log(`📧 Digital Notification Sent: ${info.messageId}`);
-
-        res.status(200).json({
-            success: true,
-            messageId: info.messageId
-        });
-    } catch (err) {
-        console.error('❌ Failed to push Digital Email:', err);
-        res.status(500).json({ error: 'Failed to send notification.' });
+    if (error) {
+        console.error('❌ Failed to push Digital Email:', error);
+        return res.status(500).json({ error: 'Failed to send notification.' });
     }
+
+    console.log(`📧 Digital Notification Sent: ${data.id}`);
+    res.status(200).json({ success: true, messageId: data.id });
+
+} catch (err) {
+    console.error('❌ Failed to push Digital Email:', err);
+    res.status(500).json({ error: 'Failed to send notification.' });
+}
 });
 
 // Root route
