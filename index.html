@@ -9,8 +9,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-    <!-- Google Identity Services Script -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Clerk SDK Script -->
+    <script async crossorigin="anonymous" data-clerk-publishable-key="pk_test_c3VidGxlLW5hcndoYWwtNTAuY2xlcmsuYWNjb3VudHMuZGV2JA" src="https://subtle-narwhal-50.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js" type="text/javascript"></script>
 </head>
 
 <body>
@@ -33,27 +33,9 @@
                     </div>
 
                     <div class="login-actions">
-                        <!-- Google Identity Services Configuration -->
-                        <div id="g_id_onload" data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
-                            data-context="signin" data-ux_mode="popup" data-callback="handleCredentialResponse"
-                            data-auto_prompt="false">
-                        </div>
-                        <div class="google-btn-container" onclick="showMockPicker()">
-                            <div class="g_id_signin" data-type="standard" data-shape="pill" data-theme="filled_blue"
-                                data-text="continue_with" data-size="large" data-logo_alignment="left">
-                            </div>
-                        </div>
+                        <div id="clerk-signin-container"></div>
 
-                        <div class="divider">
-                            <span>or</span>
-                        </div>
 
-                        <button id="guest-login-btn" class="guest-btn">
-                            <span class="btn-content">
-                                <span class="btn-icon">🚀</span>
-                                <span class="btn-text">Experience as Guest</span>
-                            </span>
-                        </button>
                     </div>
 
                     <div class="login-footer">
@@ -131,12 +113,7 @@
                     </div>
                 </div>
 
-                <div class="sidebar-footer">
-                    <div class="upgrade-card">
-                        <p>Unlock Premium</p>
-                        <button class="upgrade-btn">Pro Version</button>
-                    </div>
-                </div>
+
             </aside>
 
             <!-- Main Content Area -->
@@ -155,6 +132,7 @@
                         </div>
 
                         <div class="user-profile" id="user-profile">
+                            <button id="enable-notifications-btn" class="sync-btn" title="Enable Mobile Notifications">📲 Sync Mobile</button>
                             <div class="user-info-text">
                                 <span id="user-name"></span>
                                 <span class="user-role">Premium Member</span>
@@ -215,28 +193,27 @@
                                     </div>
                                 </div>
 
-                                <div class="real-time-badge">
-                                    <span class="pulse"></span> LIVE METRICS
-                                </div>
+
                             </section>
 
                             <!-- Task Management Section -->
                             <section class="widget tasks-card">
                                 <div class="widget-header">
-                                    <h3>Focus Tasks</h3>
+                                    <h3>DAILY TASK</h3>
                                 </div>
-                                <div class="input-group">
+                                <div class="input-group" id="task-input-bar">
+                                    <div id="time-error-msg" class="time-error-msg"></div>
                                     <input type="text" id="task-input" placeholder="What needs to be done?"
                                         aria-label="New task input">
-                                    <button id="add-btn">Add Task</button>
+                                    <div class="time-inputs-group">
+                                        <input type="time" id="task-time-from" title="From">
+                                        <span class="time-separator">to</span>
+                                        <input type="time" id="task-time-to" title="To">
+                                    </div>
+                                    <button id="add-btn" disabled>Add Task</button>
                                 </div>
 
-                                <!-- Quick Suggestions for Beginners -->
-                                <div class="quick-suggestions">
-                                    <span class="suggestion-tag" onclick="quickAdd('Clean Room')">+ Clean Room</span>
-                                    <span class="suggestion-tag" onclick="quickAdd('Laundry')">+ Laundry</span>
-                                    <span class="suggestion-tag" onclick="quickAdd('Workout')">+ Workout</span>
-                                </div>
+
                                 <ul class="task-list" id="task-list">
                                     <!-- Tasks will be added here -->
                                 </ul>
@@ -392,7 +369,17 @@
                             <h2>Account Settings</h2>
                             <p>Manage your account preferences and application settings.</p>
                         </div>
-                        <div class="settings-container">
+                        <div class="settings-card-content">
+                            <div class="settings-group">
+                                <h3>Notifications</h3>
+                                <div class="setting-item toggle-setting">
+                                    <label>Email Notifications</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="email-notif-toggle" checked>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                            </div>
                             <div class="settings-group">
                                 <h3>Profile Customization</h3>
                                 <div class="setting-item">
@@ -402,6 +389,15 @@
                                 <div class="setting-item">
                                     <label>Email Notification</label>
                                     <div class="toggle-switch active"></div>
+                                </div>
+                            </div>
+                            <div class="settings-group">
+                                <h3>Digital Uplink (Email Engine)</h3>
+                                <div class="setting-item">
+                                    <div class="uplink-status">
+                                        <span class="status-indicator warning" id="uplink-badge">⚠️ Config Pending</span>
+                                        <p class="status-desc">To receive real emails on your mobile, you must add your Gmail App Password to the <code>server.js</code> file.</p>
+                                    </div>
                                 </div>
                             </div>
                             <div class="settings-group">
@@ -423,55 +419,24 @@
         </div>
     </div>
 
-    <!-- Mock Google Account Selector (Activated on Google Login click) -->
-    <div id="account-picker-modal" class="modal-overlay hidden-display">
-        <div class="google-picker-card">
-            <div class="picker-header">
-                <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" class="google-logo">
-                    <path fill="#EA4335"
-                        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z">
-                    </path>
-                    <path fill="#4285F4"
-                        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z">
-                    </path>
-                    <path fill="#FBBC05"
-                        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24s.92 7.54 2.56 10.78l7.97-6.19z">
-                    </path>
-                    <path fill="#34A853"
-                        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z">
-                    </path>
-                </svg>
-                <h2>Choose an account</h2>
-                <p>to continue to <span>Digital Flow</span></p>
-            </div>
 
-            <div class="account-list">
-                <div class="account-item" onclick="selectAccount('varad_personal')">
-                    <img src="https://ui-avatars.com/api/?name=Varad+P&background=8b5cf6&color=fff" alt="Varad">
-                    <div class="account-info">
-                        <span class="acc-name">Varad (Personal)</span>
-                        <span class="acc-email">varad.p@gmail.com</span>
-                    </div>
-                </div>
-                <div class="account-item" onclick="selectAccount('varad_work')">
-                    <img src="https://ui-avatars.com/api/?name=VA&background=10b981&color=fff" alt="Varad Work">
-                    <div class="account-info">
-                        <span class="acc-name">Varad Agrawal</span>
-                        <span class="acc-email">varad@digitalflow.io</span>
-                    </div>
-                </div>
-                <div class="account-item use-another">
-                    <div class="icon-circle">👤</div>
-                    <span>Use another account</span>
-                </div>
-            </div>
 
-            <div class="picker-footer">
-                <p>To continue, Google will share your name, email address, language preference, and profile picture
-                    with Digital Flow.</p>
+    <!-- Professional System Modal (Alert/Confirm Replacements) -->
+    <div id="system-modal" class="modal-overlay hidden-display">
+        <div class="system-modal-card">
+            <div class="modal-indicator" id="modal-indicator"></div>
+            <div class="modal-header">
+                <h2 id="modal-title">System Message</h2>
+                <p id="modal-message">Notification details go here.</p>
+            </div>
+            <div class="modal-footer" id="modal-footer">
+                <!-- Buttons dynamically added here -->
             </div>
         </div>
     </div>
+
+    <!-- Real-time Notification System -->
+    <div id="toast-container" class="toast-container"></div>
 
     <script src="script.js"></script>
 </body>

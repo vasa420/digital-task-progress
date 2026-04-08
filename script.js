@@ -1,60 +1,134 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Check for existing session on load
+    // Initialize Dashboard Components
+    updateClock();
+    updateDate();
+    // checkAndResetTasks(); // Removed as we are now using MongoDB for persistent storage
+    // loadTasks();  // Moved to showDashboard to ensure user context
+    applyTheme();
+    loadNotificationSettings();
+    updateTrendChart();
+    updateProgress();
+    // loadObjectives(); // Moved to showDashboard to use user context from MongoDB
+
+    // Check for existing session (Instant Load)
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
         showDashboard(JSON.parse(savedUser));
     }
 
-    // Initialize Dashboard Components
-    updateClock();
-    updateDate();
-    checkAndResetTasks();
-    loadTasks();
-    applyTheme();
-    updateTrendChart();
-    updateProgress();
-    loadObjectives(); // Initialize objectives
+    // Initialize Clerk
+    const clerkPublishableKey = "pk_test_c3VidGxlLW5hcndoYWwtNTAuY2xlcmsuYWNjb3VudHMuZGV2JA";
+    
+    window.addEventListener('load', async function () {
+        if (!window.Clerk) {
+            console.error('Clerk SDK not loaded');
+            return;
+        }
 
-    // Intercept Google Sign-in to show Mock Account Selector
-    // (This overrides the broken real button for a perfect simulation)
-    const googlePlaceholder = document.querySelector('.g_id_signin');
-    if (googlePlaceholder) {
-        googlePlaceholder.addEventListener('click', (e) => {
-            // Prevent real (broken) Google action
-            e.preventDefault();
-            e.stopPropagation();
-            showMockPicker();
-        }, true);
-    }
+        await window.Clerk.load();
+
+        window.Clerk.addListener(({ user }) => {
+            if (user) {
+                // User is signed in
+                const userData = {
+                    given_name: user.firstName || 'User',
+                    name: user.fullName || 'User',
+                    picture: user.imageUrl,
+                    email: user.primaryEmailAddress ? user.primaryEmailAddress.emailAddress : ''
+                };
+                localStorage.setItem('user', JSON.stringify(userData));
+                showDashboard(userData);
+            } else {
+                // User is signed out - Mount Sign In if on login view
+                const loginView = document.getElementById('login-view');
+                if (loginView && !loginView.classList.contains('hidden-display')) {
+                    const container = document.getElementById('clerk-signin-container');
+                    if (container) {
+                        window.Clerk.mountSignIn(container, {
+                            appearance: {
+                                elements: {
+                                    rootBox: {
+                                        width: '100%',
+                                        display: 'flex',
+                                        justifyContent: 'center'
+                                    },
+                                    card: {
+                                        border: 'none',
+                                        boxShadow: 'none',
+                                        background: 'transparent'
+                                    },
+                                    headerTitle: { display: 'none' },
+                                    headerSubtitle: { display: 'none' },
+                                    dividerRow: { display: 'none' },
+                                    formFieldRow: { display: 'none' },
+                                    formButtonPrimary: { display: 'none' },
+                                    footerAction: { display: 'none' },
+                                    socialButtonsBlockButton: {
+                                        width: '100%',
+                                        height: '54px',
+                                        borderRadius: '14px',
+                                        border: '1px solid var(--glass-border)',
+                                        background: 'var(--bg-white)',
+                                        color: 'var(--text-bright)',
+                                        fontSize: '1rem',
+                                        fontWeight: '600'
+                                    },
+                                    footer: { display: 'none' },
+                                    branding: { display: 'none' }
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+        });
+    });
 
     // Set interval for real-time clock
     setInterval(updateClock, 1000);
 
     // Event Listeners
+    // Task Input Validation Listener
+    ['task-input', 'task-time-from', 'task-time-to'].forEach(id => {
+        document.getElementById(id).addEventListener('input', validateTaskForm);
+    });
+
     document.getElementById('add-btn').addEventListener('click', addTask);
     document.getElementById('task-input').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') addTask();
+        if (e.key === 'Enter' && !document.getElementById('add-btn').disabled) addTask();
     });
 
     document.getElementById('task-list').addEventListener('change', (e) => {
         if (e.target.type === 'checkbox') updateProgress();
     });
 
-    document.getElementById('task-list').addEventListener('click', (e) => {
+    document.getElementById('task-list').addEventListener('click', async (e) => {
         if (e.target.classList.contains('delete-task-btn')) {
             const item = e.target.closest('.task-item');
+            const taskId = item.getAttribute('data-id');
+            
             item.style.opacity = '0';
             item.style.transform = 'translateX(20px)';
-            setTimeout(() => {
-                item.remove();
-                saveTasks();
-                updateProgress();
-            }, 300);
+            
+            try {
+                await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+                setTimeout(() => {
+                    item.remove();
+                    updateProgress();
+                }, 300);
+            } catch (err) {
+                console.error('❌ Failed to delete task:', err);
+            }
         }
     });
 
     // Logout handler
-    document.getElementById('logout-btn').addEventListener('click', logout);
+    document.getElementById('logout-btn').addEventListener('click', () => {
+        showSystemModal('Confirm Logout', 'Are you sure you want to end your session?', 'warning', 'Logout', 'Stay')
+            .then(confirmed => {
+                if (confirmed) logout();
+            });
+    });
 
     // Theme Save Handler
     const saveBtn = document.getElementById('save-settings-btn');
@@ -64,6 +138,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const theme = select.value;
             localStorage.setItem('theme', theme);
             applyTheme();
+
+            const emailToggle = document.getElementById('email-notif-toggle');
+            if (emailToggle) {
+                localStorage.setItem('emailNotifications', emailToggle.checked);
+            }
 
             // Show feedback
             saveBtn.textContent = 'Changes Saved! ⚡';
@@ -124,20 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Guest login handler
-    const guestBtn = document.getElementById('guest-login-btn');
-    if (guestBtn) {
-        guestBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            const guestUser = {
-                given_name: 'Varad',
-                name: 'Varad (Guest)',
-                picture: 'https://ui-avatars.com/api/?name=Varad&background=8b5cf6&color=fff'
-            };
-            localStorage.setItem('user', JSON.stringify(guestUser));
-            showDashboard(guestUser);
-        });
-    }
+
 
     // Objective Modal Listeners
     const addObjCard = document.getElementById('add-objective-card');
@@ -160,53 +226,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const modal = document.getElementById('objective-modal');
         if (e.target === modal) closeObjectiveModal();
     });
+
+    // Start background checks for overdue tasks (every 30 seconds for better real-time feel)
+    setInterval(checkOverdueTasks, 30000);
 });
 
-// Mock Account Selector Functions
-function showMockPicker() {
-    const modal = document.getElementById('account-picker-modal');
-    modal.classList.remove('hidden-display');
-}
 
-function selectAccount(type) {
-    const accounts = {
-        'varad_personal': {
-            given_name: 'Varad',
-            name: 'Varad (Personal)',
-            picture: 'https://ui-avatars.com/api/?name=Varad+P&background=8b5cf6&color=fff'
-        },
-        'varad_work': {
-            given_name: 'Varad',
-            name: 'Varad Agrawal',
-            picture: 'https://ui-avatars.com/api/?name=VA&background=10b981&color=fff'
-        }
-    };
-
-    const user = accounts[type];
-    if (user) {
-        localStorage.setItem('user', JSON.stringify(user));
-
-        // Initialize state on first login
-        if (!localStorage.getItem('lastResetToken')) {
-            localStorage.setItem('lastResetToken', Date.now());
-        }
-
-        // Hide picker and show dashboard
-        document.getElementById('account-picker-modal').classList.add('hidden-display');
-        showDashboard(user);
-    }
-}
-
-// Google Credential Callback
-async function handleCredentialResponse(response) {
-    try {
-        const payload = JSON.parse(atob(response.credential.split('.')[1]));
-        localStorage.setItem('user', JSON.stringify(payload));
-        showDashboard(payload);
-    } catch (err) {
-        console.error('❌ Google Login Error:', err);
-    }
-}
 
 function showDashboard(user) {
     console.log('📂 Showing Dashboard for:', user.name);
@@ -225,6 +250,13 @@ function showDashboard(user) {
     const dashView = document.getElementById('dashboard-view');
 
     if (loginView && dashView) {
+        // If login view is already hidden, just ensure dashboard is active
+        if (loginView.classList.contains('hidden-display')) {
+            dashView.classList.remove('hidden-display', 'hidden');
+            dashView.classList.add('active');
+            return;
+        }
+
         loginView.classList.remove('active');
         loginView.classList.add('hidden');
 
@@ -241,78 +273,96 @@ function showDashboard(user) {
         }, 800);
     }
 
-    // Initialize tasks if none exist
-    const list = document.getElementById('task-list');
-    if (list && list.children.length === 0 && !localStorage.getItem('tasks')) {
-        addInitialTasks();
-    } else {
-        loadTasks();
-    }
-}
+    // Mobile Sync Button Handler
+    const syncBtn = document.getElementById('enable-notifications-btn');
+    if (syncBtn) {
+        syncBtn.addEventListener('click', async () => {
+            if (!("Notification" in window)) {
+                showToast("System Error", "This device doesn't support notifications.", "overdue");
+                return;
+            }
 
-function addInitialTasks() {
-    const defaults = [
-        { text: "Wash dishes", done: true },
-        { text: "Buy groceries", done: false },
-        { text: "Pay bills", done: false },
-        { text: "Walk the dog", done: false },
-        { text: "Buy milk at the store", done: false }
-    ];
+            const permission = await Notification.requestPermission();
+            if (permission === "granted") {
+                syncBtn.classList.add('active');
+                syncBtn.textContent = "✅ Linked";
+                
+                // Send immediate test to verify "Digital Uplink"
+                new Notification("Digital Flow System", {
+                    body: "🚀 Mobile Sync Successful! You will now receive alerts here.",
+                    icon: "https://ui-avatars.com/api/?name=DF&background=6366f1&color=fff"
+                });
 
-    const list = document.getElementById('task-list');
-    if (!list) return;
-
-    defaults.forEach(task => {
-        createTaskElement(task.text, task.done);
-    });
-
-    saveTasks();
-    updateProgress();
-}
-
-function checkAndResetTasks() {
-    const lastReset = localStorage.getItem('lastResetToken');
-    const now = Date.now();
-    const twentyFourHours = 24 * 60 * 60 * 1000;
-
-    if (lastReset && (now - lastReset > twentyFourHours)) {
-        console.log('⏳ 24 Hours passed. Resetting focus tasks...');
-        localStorage.removeItem('tasks');
-        localStorage.setItem('lastResetToken', now);
-        // Page will load defaults via showDashboard -> addInitialTasks
-    } else if (!lastReset) {
-        localStorage.setItem('lastResetToken', now);
-    }
-}
-
-function saveTasks() {
-    const tasks = [];
-    document.querySelectorAll('.task-item').forEach(li => {
-        tasks.push({
-            text: li.querySelector('label').textContent.trim().replace('×', ''),
-            done: li.querySelector('input[type="checkbox"]').checked
+                showToast("Sync Successful", "Mobile Digital Uplink is now ACTIVE.", "success");
+            } else {
+                showToast("Sync Failed", "Please enable notifications in your browser settings.", "overdue");
+            }
         });
-    });
-    localStorage.setItem('tasks', JSON.stringify(tasks));
-}
 
-function loadTasks() {
-    const savedTasks = localStorage.getItem('tasks');
-    if (savedTasks) {
-        const tasks = JSON.parse(savedTasks);
-        const list = document.getElementById('task-list');
-        if (list) {
-            list.innerHTML = ''; // Clear current UI
-            tasks.forEach(task => {
-                createTaskElement(task.text, task.done);
-            });
+        // Auto-check if already granted
+        if (Notification.permission === "granted") {
+            syncBtn.classList.add('active');
+            syncBtn.textContent = "✅ Linked";
         }
     }
+
+    // Load Data from MongoDB
+    loadTasksFromDB(user.email);
+    loadObjectivesFromDB(user.email);
+
+    // Initialize tasks if none exist
+    // This will be handled by loadTasksFromDB checking for empty results
+}
+
+async function loadTasksFromDB(email) {
+    try {
+        const response = await fetch(`/api/tasks?email=${email}`);
+        const tasks = await response.json();
+        const list = document.getElementById('task-list');
+        if (list) {
+            list.innerHTML = '';
+            if (tasks.length === 0) {
+                addInitialTasks(email);
+            } else {
+                tasks.forEach(task => {
+                    createTaskElement(task.text, task.done, task.timeFrom, task.timeTo, task.notified, task._id);
+                });
+                updateProgress();
+            }
+        }
+    } catch (err) {
+        console.error('❌ Failed to fetch tasks:', err);
+    }
+}
+
+async function addInitialTasks(email) {
+    const defaults = [
+        { text: "Wash dishes", done: true, timeFrom: "08:00", timeTo: "08:30" },
+        { text: "Buy groceries", done: false, timeFrom: "10:00", timeTo: "11:00" },
+        { text: "Pay bills", done: false, timeFrom: "14:00", timeTo: "14:30" },
+        { text: "Walk the dog", done: false, timeFrom: "17:00", timeTo: "17:30" },
+        { text: "Buy milk at the store", done: false, timeFrom: "18:00", timeTo: "18:30" }
+    ];
+
+    for (const task of defaults) {
+        await fetch('/api/tasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...task, userEmail: email })
+        });
+    }
+    loadTasksFromDB(email);
 }
 
 function logout() {
     localStorage.removeItem('user');
-    window.location.reload();
+    if (window.Clerk && window.Clerk.user) {
+        window.Clerk.signOut().then(() => {
+            window.location.reload();
+        });
+    } else {
+        window.location.reload();
+    }
 }
 
 function updateClock() {
@@ -322,7 +372,7 @@ function updateClock() {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
-        hour12: true
+        hour12: false
     });
     clockElement.textContent = timeString;
 }
@@ -335,45 +385,179 @@ function updateDate() {
 }
 
 // Beginner Friendly Core Logic: Adding Tasks
-function addTask() {
+async function addTask() {
     const input = document.getElementById('task-input');
-    const text = input.value.trim();
+    const timeFromInput = document.getElementById('task-time-from');
+    const timeToInput = document.getElementById('task-time-to');
 
-    if (text !== "") {
-        createTaskElement(text);
-        input.value = ""; // Clear for next one
-        saveTasks();
-        updateProgress(); // Sync stats
+    const text = input.value.trim();
+    let timeFrom = timeFromInput.value;
+    let timeTo = timeToInput.value;
+
+    const savedUser = localStorage.getItem('user');
+    const user = savedUser ? JSON.parse(savedUser) : null;
+
+    if (text !== "" && timeFrom && timeTo && user) {
+        const newTask = {
+            text,
+            timeFrom,
+            timeTo,
+            userEmail: user.email,
+            done: false
+        };
+
+        try {
+            await fetch('/api/tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newTask)
+            });
+            
+            input.value = ""; 
+            timeFromInput.value = "";
+            timeToInput.value = "";
+            validateTaskForm();
+            loadTasksFromDB(user.email);
+        } catch (err) {
+            console.error('❌ Failed to add task:', err);
+        }
     }
 }
 
-// Support for one-tap chore entry (Fix Step 152)
-function quickAdd(text) {
-    createTaskElement(text);
-    saveTasks();
-    updateProgress();
+function validateTaskForm() {
+    const text = document.getElementById('task-input').value.trim();
+    const fromTimeStr = document.getElementById('task-time-from').value;
+    const toTimeStr = document.getElementById('task-time-to').value;
+    const errorEl = document.getElementById('time-error-msg');
+    const addBtn = document.getElementById('add-btn');
+
+    let isTimeValid = true;
+    let errorMsg = "";
+
+    if (fromTimeStr && toTimeStr) {
+        const now = new Date();
+        const [fromH, fromM] = fromTimeStr.split(':').map(Number);
+        const [toH, toM] = toTimeStr.split(':').map(Number);
+
+        let fromDate = new Date();
+        fromDate.setHours(fromH, fromM, 0, 0);
+
+        let toDate = new Date();
+        toDate.setHours(toH, toM, 0, 0);
+
+        // Allow a 5-minute "grace period" for tasks starting right now or just missed.
+        const gracePeriod = 5 * 60 * 1000; // 5 minutes
+
+        // Intelligent AM/PM handler: 
+        // If the 24h conversion (e.g., 01:50 AM) has passed, 
+        // check if adding 12h (01:50 PM) makes it valid for today.
+        if (fromDate.getTime() + gracePeriod < now.getTime() && fromH < 12) {
+            const pmFromDate = new Date(fromDate.getTime() + 12 * 60 * 60 * 1000);
+            const pmToDate = new Date(toDate.getTime() + 12 * 60 * 60 * 1000);
+            
+            if (pmFromDate.getTime() + gracePeriod >= now.getTime() && pmToDate > pmFromDate) {
+                // User almost certainly meant PM version. Allow validation to proceed cleanly.
+                fromDate = pmFromDate;
+                toDate = pmToDate;
+            }
+        }
+        
+        if (fromDate.getTime() + gracePeriod < now.getTime()) {
+            isTimeValid = false;
+            errorMsg = "🕒 Selected time has already passed. Please update to a future time.";
+        } else if (toDate <= fromDate) {
+            isTimeValid = false;
+            errorMsg = "⚠️ 'To' time must be after 'From' time.";
+        }
+    }
+
+    if (errorEl) {
+        errorEl.textContent = errorMsg;
+        errorEl.classList.toggle('active', !isTimeValid);
+    }
+
+    // Enable only if all fields have values AND time is valid
+    if (text !== "" && fromTimeStr !== "" && toTimeStr !== "" && isTimeValid) {
+        addBtn.disabled = false;
+    } else {
+        addBtn.disabled = true;
+    }
 }
 
-function createTaskElement(text, done = false) {
+function createTaskElement(text, done = false, timeFrom = "", timeTo = "", notified = false, id = null) {
     const list = document.getElementById('task-list');
     if (!list) return;
 
     const li = document.createElement('li');
     li.className = `task-item ${done ? 'completed' : ''}`;
+    li.setAttribute('data-time-from', timeFrom);
+    li.setAttribute('data-time-to', timeTo);
+    li.setAttribute('data-notified', notified);
+    if (id) li.setAttribute('data-id', id);
+
+    let timeBadge = '';
+    if (timeFrom || timeTo) {
+        const from = timeFrom ? timeFrom.padStart(5, '0') : '??';
+        const to = timeTo ? timeTo.padStart(5, '0') : '??';
+        timeBadge = `<span class="task-time-badge">${from} - ${to}</span>`;
+    }
+
     li.innerHTML = `
-        <label>
-            <input type="checkbox" ${done ? 'checked' : ''}> ${text}
-        </label>
-        <button class="delete-task-btn" title="Remove Task">×</button>
+        ${timeBadge}
+        <div class="task-item-content">
+            <div class="task-label-group">
+                <label>
+                    <input type="checkbox" ${done ? 'checked' : ''}>
+                    <span class="task-text-content">${text}</span>
+                </label>
+            </div>
+            <button class="delete-task-btn" title="Remove Task">×</button>
+        </div>
     `;
 
-    // Add change listener to newly created checkbox to ensure persistence
-    li.querySelector('input').addEventListener('change', () => {
-        saveTasks();
-        updateProgress();
+    const checkbox = li.querySelector('input');
+    checkbox.addEventListener('change', async () => {
+        const isDone = checkbox.checked;
+        if (isDone) {
+            li.classList.add('completed');
+        } else {
+            li.classList.remove('completed');
+        }
+
+        try {
+            await fetch(`/api/tasks/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ done: isDone })
+            });
+
+            if (isDone) {
+                const taskText = li.querySelector('.task-text-content').textContent.trim();
+                const savedUser = localStorage.getItem('user');
+                const user = savedUser ? JSON.parse(savedUser) : null;
+                
+                if (user && user.email) {
+                    fetch('/api/notify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: user.email, taskName: taskText, type: 'success' })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            showToast("Achievement Unlocked", "Success alert sent to your mobile!", "success");
+                        }
+                    });
+                }
+            }
+            updateProgress();
+        } catch (err) {
+            console.error('❌ Failed to update task:', err);
+        }
     });
 
     list.appendChild(li);
+    if (!done) checkSingleTaskOverdue(li);
 }
 
 function applyTheme() {
@@ -475,42 +659,20 @@ function updateTrendChart() {
 
 let objectives = [];
 
-function loadObjectives() {
-    const saved = localStorage.getItem('objectives');
-    if (saved) {
-        objectives = JSON.parse(saved);
-    } else {
-        // Default Objectives
-        objectives = [
-            {
-                id: Date.now(),
-                title: 'Project Launch',
-                desc: 'Complete core development and initial testing phase for the new app.',
-                icon: '🚀',
-                progress: 75
-            },
-            {
-                id: Date.now() + 1,
-                title: 'Read 12 Books',
-                desc: 'Mental expansion and continuous learning goal for the current year.',
-                icon: '📚',
-                progress: 40
-            }
-        ];
-        saveObjectives();
+async function loadObjectivesFromDB(email) {
+    try {
+        const response = await fetch(`/api/objectives?email=${email}`);
+        objectives = await response.json();
+        renderObjectives();
+    } catch (err) {
+        console.error('❌ Failed to fetch objectives:', err);
     }
-    renderObjectives();
-}
-
-function saveObjectives() {
-    localStorage.setItem('objectives', JSON.stringify(objectives));
 }
 
 function renderObjectives() {
     const grid = document.getElementById('objectives-grid');
     if (!grid) return;
 
-    // Remove all cards except the "plus" card
     const cards = grid.querySelectorAll('.objective-card:not(.plus)');
     cards.forEach(c => c.remove());
 
@@ -520,7 +682,7 @@ function renderObjectives() {
         const card = document.createElement('div');
         card.className = 'objective-card';
         card.innerHTML = `
-            <button class="obj-delete-btn" onclick="deleteObjective(${obj.id})">×</button>
+            <button class="obj-delete-btn" onclick="deleteObjectiveFromDB('${obj._id}')">×</button>
             <div class="obj-header">
                 <span class="obj-icon">${obj.icon}</span>
                 <h4>${obj.title}</h4>
@@ -550,35 +712,258 @@ function closeObjectiveModal() {
     modal.classList.add('hidden-display');
 }
 
-function createObjective() {
+async function createObjective() {
     const title = document.getElementById('obj-title').value.trim();
     const desc = document.getElementById('obj-desc').value.trim();
     const icon = document.getElementById('obj-icon').value.trim() || '🎯';
     const progress = parseInt(document.getElementById('obj-progress').value) || 0;
 
-    if (!title) {
-        alert('Please enter a title for the objective.');
+    const savedUser = localStorage.getItem('user');
+    const user = savedUser ? JSON.parse(savedUser) : null;
+
+    if (!title || !user) {
+        showSystemModal('Missing Data', 'Please ensure you are signed in and provide a title.', 'warning');
         return;
     }
 
     const newObj = {
-        id: Date.now(),
+        userEmail: user.email,
         title,
         desc,
         icon,
         progress: Math.min(100, Math.max(0, progress))
     };
 
-    objectives.push(newObj);
-    saveObjectives();
-    renderObjectives();
-    closeObjectiveModal();
+    try {
+        await fetch('/api/objectives', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newObj)
+        });
+        loadObjectivesFromDB(user.email);
+        closeObjectiveModal();
+    } catch (err) {
+        console.error('❌ Failed to create objective:', err);
+    }
 }
 
-function deleteObjective(id) {
-    if (confirm('Are you sure you want to delete this objective?')) {
-        objectives = objectives.filter(o => o.id !== id);
-        saveObjectives();
-        renderObjectives();
+async function deleteObjectiveFromDB(id) {
+    const confirmed = await showSystemModal(
+        'Delete Objective', 
+        'Are you sure you want to permanently remove this objective?', 
+        'danger', 
+        'Delete', 
+        'Cancel'
+    );
+    
+    if (confirmed) {
+        try {
+            await fetch(`/api/objectives/${id}`, { method: 'DELETE' });
+            const savedUser = localStorage.getItem('user');
+            const user = savedUser ? JSON.parse(savedUser) : null;
+            if (user) loadObjectivesFromDB(user.email);
+            showToast("Objective Removed", "Strategic objective deleted from cloud.", "warning");
+        } catch (err) {
+            console.error('❌ Failed to delete objective:', err);
+        }
     }
+}
+
+// --- REAL-TIME OVERDUE & NOTIFICATION LOGIC ---
+
+function checkOverdueTasks() {
+    const tasks = document.querySelectorAll('.task-item:not(.completed)');
+    tasks.forEach(task => {
+        checkSingleTaskOverdue(task);
+    });
+}
+
+function checkSingleTaskOverdue(taskEl) {
+    const timeTo = taskEl.getAttribute('data-time-to');
+    const isNotified = taskEl.getAttribute('data-notified') === 'true';
+    
+    if (!timeTo) return;
+
+    const now = new Date();
+    const [hours, minutes] = timeTo.split(':').map(Number);
+    const deadline = new Date();
+    deadline.setHours(hours, minutes, 0, 0);
+
+    if (now > deadline) {
+        taskEl.classList.add('overdue');
+        
+        if (!isNotified) {
+            const taskName = taskEl.querySelector('.task-text-content').textContent;
+            const taskId = taskEl.getAttribute('data-id');
+            sendOverdueNotification(taskName);
+            taskEl.setAttribute('data-notified', 'true');
+            
+            // Persist notified state in DB
+            if (taskId) {
+                fetch(`/api/tasks/${taskId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ notified: true })
+                });
+            }
+        }
+    } else {
+        taskEl.classList.remove('overdue');
+    }
+}
+
+async function sendOverdueNotification(taskName) {
+    const isEnabled = localStorage.getItem('emailNotifications') !== 'false'; // Default to true
+    const savedUser = localStorage.getItem('user');
+    const user = savedUser ? JSON.parse(savedUser) : null;
+    
+    if (isEnabled && user && user.email) {
+        console.log(`📧 Dispatching Real Digital Email for: ${taskName} to ${user.email}`);
+        
+        // Show immediate local toast
+        showToast("Email Hub", `Dispatching URGENT alert for: "${taskName}"`, "overdue");
+
+        try {
+            // Push Browser Notification (Real Mobile Alert if browser is open)
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification(`⚠️ TASK EXCEEDED: ${taskName}`, {
+                    body: "WORK PENDING! DONE FAST!",
+                    icon: "https://ui-avatars.com/api/?name=DF&background=6366f1&color=fff"
+                });
+            }
+
+            const response = await fetch('/api/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: user.email,
+                    taskName: taskName
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                console.log(`✅ Reality Notification Delivered. ID: ${data.messageId}`);
+                showToast("Email Sent!", `Real notification pushed to: ${user.email}`, "success");
+            }
+        } catch (err) {
+            console.error('❌ Failed to push reality notification:', err);
+        }
+    } else {
+        console.log(`🔕 Notification suppressed. Reason: ${!isEnabled ? 'Disabled' : 'No Email Found'}`);
+        showToast("System Alert", `Task "${taskName}" is overdue! Done fast!`, "overdue");
+    }
+}
+
+function loadNotificationSettings() {
+    const isEnabled = localStorage.getItem('emailNotifications') !== 'false';
+    const emailToggle = document.getElementById('email-notif-toggle');
+    if (emailToggle) {
+        emailToggle.checked = isEnabled;
+    }
+
+    // Update Uplink Badge based on browser permission as well
+    const uplinkBadge = document.getElementById('uplink-badge');
+    if (uplinkBadge && Notification.permission === "granted") {
+        uplinkBadge.textContent = "✅ System Linked";
+        uplinkBadge.className = "status-indicator success";
+    }
+}
+
+function showToast(title, message, type = "info") {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type === 'overdue' ? 'overdue' : ''} ${type === 'success' ? 'success' : ''}`;
+    
+    let icon = '🔔';
+    if (type === 'overdue') icon = '📧';
+    if (type === 'success') icon = '✅';
+    
+    toast.innerHTML = `
+        <div class="toast-icon">${icon}</div>
+        <div class="toast-content">
+            <span class="toast-title">${title}</span>
+            <span class="toast-message">${message}</span>
+            <div class="toast-meta">
+                <span class="toast-tag">Digital Flow Mail</span>
+            </div>
+        </div>
+    `;
+
+    container.appendChild(toast);
+
+    // Trigger animation
+    requestAnimationFrame(() => {
+        toast.classList.add('active');
+    });
+
+    // Auto remove after 10 seconds
+    setTimeout(() => {
+        toast.classList.remove('active');
+        setTimeout(() => toast.remove(), 600);
+    }, 10000);
+
+    // Click to dismiss
+    toast.addEventListener('click', () => {
+        toast.classList.remove('active');
+        setTimeout(() => toast.remove(), 600);
+    });
+}
+
+// --- PROFESSIONAL SYSTEM MODAL HANDLER ---
+
+function showSystemModal(title, message, type = 'info', confirmText = 'OK', cancelText = null) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('system-modal');
+        const titleEl = document.getElementById('modal-title');
+        const messageEl = document.getElementById('modal-message');
+        const footer = document.getElementById('modal-footer');
+        const indicator = document.getElementById('modal-indicator');
+
+        if (!modal || !titleEl || !messageEl || !footer) return;
+
+        titleEl.textContent = title;
+        messageEl.textContent = message;
+        footer.innerHTML = '';
+
+        // Update indicator color
+        indicator.className = 'modal-indicator';
+        if (type === 'warning') indicator.classList.add('warning');
+        if (type === 'danger') indicator.classList.add('danger');
+
+        // Create buttons
+        if (cancelText) {
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'modal-btn secondary';
+            cancelBtn.textContent = cancelText;
+            cancelBtn.onclick = () => {
+                modal.classList.add('hidden-display');
+                resolve(false);
+            };
+            footer.appendChild(cancelBtn);
+        }
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.className = `modal-btn ${type === 'danger' ? 'danger' : 'primary'}`;
+        confirmBtn.textContent = confirmText;
+        confirmBtn.onclick = () => {
+            modal.classList.add('hidden-display');
+            resolve(true);
+        };
+        footer.appendChild(confirmBtn);
+
+        modal.classList.remove('hidden-display');
+        
+        // Add one-time click listener for overlay
+        const handleOutsideClick = (e) => {
+            if (e.target === modal) {
+                modal.classList.add('hidden-display');
+                modal.removeEventListener('click', handleOutsideClick);
+                resolve(false);
+            }
+        };
+        modal.addEventListener('click', handleOutsideClick);
+    });
 }
